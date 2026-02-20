@@ -1,15 +1,20 @@
+#include "eigen3/Eigen/Dense"
 #include <math.h>
 #include <unistd.h>
 #include <ncurses.h>
 #include <stdlib.h>
 #include <vector>
 #include <cassert>
+
+using Eigen::Vector2d;
+
+
 int MAXSIZE = 1000;
 float SPEEDLIMIT = 100;
 float dt = 10;
 
 
-float dotP(std::vector<float> a, std::vector<float> b) {
+float dotP(Vector2d a, Vector2d b) {
   assert(a.size() == b.size() && "vectors need to be of equal length for dotproduct");
   float sum = 0;
   for (size_t i = 0; i < a.size(); i++) {
@@ -17,7 +22,7 @@ float dotP(std::vector<float> a, std::vector<float> b) {
   }
   return sum;
 }
-float magnitudeV(std::vector<float> a) {
+float magnitudeV(Vector2d a) {
   float sum = 0;  
   for (size_t i = 0; i < a.size(); i++) {
     sum += a[i];
@@ -25,13 +30,20 @@ float magnitudeV(std::vector<float> a) {
   return sum;  
 }
 
-std::vector<float> normalizeV(std::vector<float> a) {
+Vector2d normalizeV(Vector2d a) {
   float m = magnitudeV(a);
   for (size_t i = 0; i < a.size(); i++) {
      a[i] /= m;
   }
   return a;  
 }
+Vector2d Vadd(Vector2d a, Vector2d b) {
+  for (size_t i = 0; i < a.size(); i++) {
+     a[i] += b[i];
+  }
+  return a;  
+}
+
 
 
 
@@ -46,20 +58,20 @@ void clearscr() {
 
 class thing {
 public:
-  std::vector<float> position;
-  std::vector<float> velocity;
+  Vector2d position;
+  Vector2d velocity;
   float radius;
   float mass;
   int color;
-  thing(std::vector<float> pos, std::vector<float> vel, float rad, float m, int c) {
+  thing(Vector2d pos, Vector2d vel, float rad, float m, int c) {
     position = pos;
     velocity = vel;
     radius = rad;
     mass = m;
     color = c;    
   }
-  void accelerate(std::vector<float> impuls) {
-    std::vector<float> incomingVel = {(impuls[0] / mass),(impuls[1] / mass)};
+  void accelerate(Vector2d impuls) {
+    Vector2d incomingVel = {(impuls[0] / mass),(impuls[1] / mass)};
     velocity[0] = (incomingVel[0] + velocity[0])/(1+ (incomingVel[0]*velocity[0])/(SPEEDLIMIT*SPEEDLIMIT));
     velocity[1] = (incomingVel[1] + velocity[1])/(1+ (incomingVel[1]*velocity[1])/(SPEEDLIMIT*SPEEDLIMIT));
     }
@@ -123,15 +135,15 @@ void checkCollisions(std::vector<thing> *things) {
 	float dvx = curThing.velocity[0] - compThing.velocity[0];
 	float dvy = curThing.velocity[1] - compThing.velocity[1];
 
-	std::vector<float> n = normalizeV({dx, dy});
+	Vector2d n = normalizeV({dx, dy});
 	float velocityAlongNormalVector = dotP(n, {dvx, dvy});
 
 	float e = 0.5; //coeficient of efficiency
 
 	float impulsMag = -(1 + e) * velocityAlongNormalVector;
         impulsMag /= (1 / curThing.mass + 1 / compThing.mass);
-	std::vector<float> impuls = {n[0]*impulsMag, n[1]*impulsMag};        
-	std::vector<float> negimpuls = {-impuls[0], -impuls[1]};
+	Vector2d impuls = {n[0]*impulsMag, n[1]*impulsMag};        
+	Vector2d negimpuls = {-impuls[0], -impuls[1]};
         curThing.accelerate(impuls);
 	compThing.accelerate(negimpuls);
       }
@@ -154,7 +166,7 @@ void gravitate(std::vector<thing> *things) {
       
       float gForce =
 	(9.81 * curThing.mass * compThing.mass) / (distance * distance * distance);
-      std::vector<float> directionalImpuls = {gForce * dx * dt, gForce * dy * dt};
+      Vector2d directionalImpuls = {gForce * dx * dt, gForce * dy * dt};
       curThing.accelerate(directionalImpuls);
       compThing.accelerate({-directionalImpuls[0], -directionalImpuls[1]});
     }
