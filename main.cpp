@@ -13,40 +13,6 @@ int MAXSIZE = 1000;
 float SPEEDLIMIT = 100;
 float dt = 10;
 
-
-float dotP(Vector2d a, Vector2d b) {
-  assert(a.size() == b.size() && "vectors need to be of equal length for dotproduct");
-  float sum = 0;
-  for (size_t i = 0; i < a.size(); i++) {
-    sum += a[i] * b[i];
-  }
-  return sum;
-}
-float magnitudeV(Vector2d a) {
-  float sum = 0;  
-  for (size_t i = 0; i < a.size(); i++) {
-    sum += a[i];
-  }
-  return sum;  
-}
-
-Vector2d normalizeV(Vector2d a) {
-  float m = magnitudeV(a);
-  for (size_t i = 0; i < a.size(); i++) {
-     a[i] /= m;
-  }
-  return a;  
-}
-Vector2d Vadd(Vector2d a, Vector2d b) {
-  for (size_t i = 0; i < a.size(); i++) {
-     a[i] += b[i];
-  }
-  return a;  
-}
-
-
-
-
 void quit() { endwin(); }
 void clearscr() {
     for (int j = 0; j <= LINES; j++) {
@@ -71,14 +37,12 @@ public:
     color = c;    
   }
   void accelerate(Vector2d impuls) {
-    Vector2d incomingVel = {(impuls[0] / mass),(impuls[1] / mass)};
-    velocity[0] = (incomingVel[0] + velocity[0])/(1+ (incomingVel[0]*velocity[0])/(SPEEDLIMIT*SPEEDLIMIT));
-    velocity[1] = (incomingVel[1] + velocity[1])/(1+ (incomingVel[1]*velocity[1])/(SPEEDLIMIT*SPEEDLIMIT));
-    }
+    Vector2d incomingVel = impuls / mass;
+    velocity = (incomingVel + velocity).array()/( 1 + (incomingVel.array()*velocity.array())/(SPEEDLIMIT*SPEEDLIMIT));
+  }
   void updatePos() {
-    position[0] += velocity[0];
-    position[1] += velocity[1];
-    }
+    position += velocity;      
+  }
 };
 
 void drawThings(std::vector<thing> things,  char texture) {
@@ -126,26 +90,23 @@ void checkCollisions(std::vector<thing> *things) {
       
       thing& curThing = things->at(i);
       thing& compThing = things->at(j);
-      float dx = curThing.position[0] - compThing.position[0];
-      float dy = curThing.position[1] - compThing.position[1];
-      float distanceSqrd = dx*dx + dy*dy;
+      Vector2d dpos = curThing.position - compThing.position;
+      float distanceSqrd = dpos.dot(dpos);
       if (distanceSqrd < (curThing.radius + compThing.radius) *
                              (curThing.radius + compThing.radius)) {
                 
-	float dvx = curThing.velocity[0] - compThing.velocity[0];
-	float dvy = curThing.velocity[1] - compThing.velocity[1];
+	Vector2d dvel = curThing.velocity - compThing.velocity;
 
-	Vector2d n = normalizeV({dx, dy});
-	float velocityAlongNormalVector = dotP(n, {dvx, dvy});
+	dpos.normalize();
+	float velocityAlongNormalVector = dpos.dot(dvel);
 
 	float e = 0.5; //coeficient of efficiency
 
 	float impulsMag = -(1 + e) * velocityAlongNormalVector;
         impulsMag /= (1 / curThing.mass + 1 / compThing.mass);
-	Vector2d impuls = {n[0]*impulsMag, n[1]*impulsMag};        
-	Vector2d negimpuls = {-impuls[0], -impuls[1]};
+	Vector2d impuls = dpos * impulsMag;
         curThing.accelerate(impuls);
-	compThing.accelerate(negimpuls);
+	compThing.accelerate(-impuls);
       }
       
     }
@@ -157,18 +118,17 @@ void gravitate(std::vector<thing> *things) {
       
       thing& curThing = things->at(i);
       thing& compThing = things->at(j);
-      float dx = compThing.position[0] - curThing.position[0];
-      float dy = compThing.position[1] - curThing.position[1];
-      float distance = sqrt(dx*dx + dy*dy);
+      Vector2d dpos = compThing.position - curThing.position;
+      float distance = dpos.norm();
       if (distance < curThing.radius + compThing.radius) {
         distance = curThing.radius + compThing.radius;
       }
       
       float gForce =
 	(9.81 * curThing.mass * compThing.mass) / (distance * distance * distance);
-      Vector2d directionalImpuls = {gForce * dx * dt, gForce * dy * dt};
+      Vector2d directionalImpuls = gForce * dt * dpos;
       curThing.accelerate(directionalImpuls);
-      compThing.accelerate({-directionalImpuls[0], -directionalImpuls[1]});
+      compThing.accelerate(-directionalImpuls);
     }
   }
 }
