@@ -11,7 +11,7 @@ using Eigen::Vector3d;
 std::string zPallete = "MQW#BNqpHERmKdgAGbX8@SDO$PUkwZyF69heT0a&xV%Cs4fY52Lonz3ucJjvItr}{li?1][7<>=)(+*|!/;:-,";
 
 int MAXSIZE = 5000;
-float SPEEDLIMIT = 100;
+float SPEEDLIMIT = 500;
 float dt = 10;
 
 void quit() { endwin(); }
@@ -46,6 +46,18 @@ public:
   }
 };
 
+
+void applyHelioCentrism(thing *sun, std::vector<thing> *things) {
+  Vector3d originalSunPosition = sun->position;
+  for (size_t i = 0; i < things->size(); i++) {
+    thing& curThing = things->at(i);
+    // set Positions relative to the sun (including the sun)
+    curThing.position -= originalSunPosition;
+    }
+}
+
+
+
 void drawThings(std::vector<thing> things,  char texture) {
 
   struct {
@@ -53,11 +65,17 @@ void drawThings(std::vector<thing> things,  char texture) {
       return a.position[2] < b.position[2];
     }
   } zPositionsLess;
-
+  
+  applyHelioCentrism(&things[3], &things);
   std::sort(things.begin(), things.end(), zPositionsLess);
   
   for (size_t i = 0; i < things.size(); i++) {
     thing curThing = things[i];
+
+    // shift position range from [-MAXSIZE/2, +MAXSIZE/2] to [0, MAXSIZE]
+    // only necessary if Heliocentric
+    
+    curThing.position = curThing.position.array() + MAXSIZE/2;
     // find closest int coords to pos
     int LINEpos = curThing.position[0] / MAXSIZE * LINES;
     int COLpos = curThing.position[1] / MAXSIZE * COLS;
@@ -69,7 +87,7 @@ void drawThings(std::vector<thing> things,  char texture) {
     int LINErad = (curThing.radius * zSizeOffset) / MAXSIZE * LINES;
     int COLrad = (curThing.radius * zSizeOffset) / MAXSIZE * COLS;    
 
-    if (texture == 'O') {
+    if (false){//texture == 'O') {
       if (size_t(Zpos) < zPallete.size()){
 	texture = zPallete.at(Zpos);
       }
@@ -124,7 +142,7 @@ void checkCollisions(std::vector<thing> *things) {
 	dpos.normalize();
 	float velocityAlongNormalVector = dpos.dot(dvel);
 
-	float e = 0.8; //coeficient of efficiency
+	float e = 0.6; //coeficient of efficiency
 
 	float impulsMag = -(1 + e) * velocityAlongNormalVector;
         impulsMag /= (1 / curThing.mass + 1 / compThing.mass);
@@ -144,7 +162,7 @@ void gravitate(std::vector<thing> *things) {
       thing& compThing = things->at(j);
       Vector3d dpos = compThing.position - curThing.position;
       float distance = dpos.norm();
-      if (distance * 0.8 < curThing.radius + compThing.radius) {
+      if (distance * 0.5 < curThing.radius + compThing.radius) {
         distance = (curThing.radius + compThing.radius) * 0.8;        
       }
       
@@ -180,7 +198,7 @@ int main() {
   std::vector<thing> things = {thing({350, 1450, 1000}, {0, 0, 0}, 700, 700, 1),
                                thing({1000, 100, 1900}, {+10, +50, -500}, 50, 500,2),
                                thing({950, 2955, 850}, {0, -50, 0}, 400, 400, 3),
-			       thing({2500, 2500, 2500}, {0,0, 0}, 700, 17000, 4),
+			       thing({2500, 2500, 2500}, {0,0, 0}, 700, 1700, 4),
 			       thing({100, 100, 2500}, {0,0, -50}, 500, 500, 5),
                                thing({4050, 195, 400}, {+50,-50, 0}, 400, 400, 6)};
 
